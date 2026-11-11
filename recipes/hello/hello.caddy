@@ -1,0 +1,5 @@
+# /hello -> test app on port 8096
+redir /hello /hello/ 308
+handle_path /hello/* {
+	reverse_proxy 127.0.0.1:8096
+}

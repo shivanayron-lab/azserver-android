@@ -1,0 +1,5 @@
+# /evo -> Evolution API (port 8081); the panel is at /evo/manager/
+redir /evo /evo/ 308
+handle_path /evo/* {
+	reverse_proxy 127.0.0.1:8081
+}

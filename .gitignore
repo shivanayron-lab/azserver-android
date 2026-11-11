@@ -1,0 +1,7 @@
+# generated per person: never publish
+wrangler.toml
+.wrangler/
+*.key
+*.token
+push.key
+node_modules/

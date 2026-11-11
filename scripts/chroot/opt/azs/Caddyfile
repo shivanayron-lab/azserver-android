@@ -1,0 +1,29 @@
+# Router: everything the tunnel brings arrives here and goes to an app by path.
+# Each app adds a file in /opt/azs/routes/ (example: recipes/hello/hello.caddy).
+{
+	admin off
+	auto_https off
+}
+
+http://:{$ROUTER_PORT} {
+	bind 127.0.0.1
+
+	# Encrypted backups, for the PC to download (header X-Backup-Token required).
+	handle_path /_backup/* {
+		@ok header X-Backup-Token {$BACKUP_TOKEN}
+		handle @ok {
+			root * /opt/azs/export
+			file_server
+		}
+		respond "forbidden" 403
+	}
+
+	import /opt/azs/routes/*.caddy
+
+	handle /health {
+		respond "ok" 200
+	}
+	handle {
+		respond "azs: rota não encontrada" 404
+	}
+}
