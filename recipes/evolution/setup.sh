@@ -85,6 +85,8 @@ ls -la dist/main.js
 
 cp "$H/patch-manager.sh" /opt/evo/patch-manager.sh && chmod 755 /opt/evo/patch-manager.sh
 /opt/evo/patch-manager.sh
+cp "$H/patch-reconnect.js" /opt/evo/patch-reconnect.js
+/opt/node/bin/node /opt/evo/patch-reconnect.js
 cp "$H/10-mariadb.conf" "$H/20-evolution.conf" /opt/azs/services/
 cp "$H/evo.caddy" /opt/azs/routes/evo.caddy
 cp "$H/backup-evolution.sh" /opt/azs/backup.d/evolution.sh
