@@ -19,6 +19,8 @@
 | Servidor só responde com a tela ligada | CPU suspensa | Wake lock (`azs.sh start` faz). Confira `cat /sys/power/wake_lock` |
 | Endereço fixo dá 503 por alguns minutos depois do reboot | Aparelho ainda ligando, ou túnel novo ainda não avisado | Normal até ~3 min. Se passar disso: `azs.sh status`, `supervisor.log` ("endereço fixo agora aponta") |
 | Endereço fixo 503 intermitente com o túnel direto ok | Worker lendo endereço velho de um cache (Gist/CDN) | Use o aviso direto do aparelho (`/__set`), não um arquivo público |
+| Tudo 503 pelo endereço fixo, com aparelho, apps e cloudflared "conectado" e `/ready` 200 | A Cloudflare apagou o endereço do quick tunnel (`nslookup <endereço>` = domínio inexistente) | O supervisor reinicia o túnel sozinho após 3 falhas do endereço público (~6 min). Na mão: `azs.sh stop; azs.sh start` |
+| `/__set` responde 503 "kv: ... limit exceeded" (antes: erro 1101) e o endereço fixo fica no túnel velho | Cota grátis do KV (1.000 gravações/dia, **conta inteira**) gasta por outro Worker | Passe o Worker que grava muito para o D1. A cota zera à meia-noite UTC (ver 04) |
 | Painel web em branco atrás de `/prefixo` | App com caminhos absolutos | "Base path" do app, ou reescrever como o `patch-manager.sh` |
 | Backup "bad decrypt" | Chave com `\r\n` (Windows) lida diferente em cada lado | Chave só com LF: `sed -i 's/\r$//' backup.key` nos dois lados e gere de novo |
 | App Android de apoio lê "Permission denied" em arquivo criado pelo root | Rótulo SELinux sem as categorias do app (`s0:cNNN,cNNN`) | `chcon "$(stat -c %C pasta)" arquivo` |

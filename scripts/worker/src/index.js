@@ -28,8 +28,13 @@ async function setBase(req, env) {
   const f = await req.formData().catch(() => null);
   const base = clean(f && f.get("base"));
   if (!TUNNEL.test(base)) return new Response("bad base", { status: 400 });
-  await env.AZS.put("base", base);
   cached = { base, at: Date.now() };
+  // Free KV = 1,000 writes per day for the WHOLE account (all Workers together). When
+  // another Worker uses it up, put() throws; answer 503 (the phone retries every 15 s)
+  // instead of crashing with Cloudflare error 1101.
+  try { await env.AZS.put("base", base); } catch (e) {
+    return new Response("kv: " + String((e && e.message) || e), { status: 503 });
+  }
   return new Response("ok");
 }
 

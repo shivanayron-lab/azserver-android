@@ -17,7 +17,7 @@ Internet -> https://<nome>.<conta>.workers.dev    endereço fixo (Cloudflare Wor
 - Instala o Ubuntu 24.04 em chroot a partir do PC, com o download conferido por SHA-256, e corrige a "rede paranoica" do Android.
 - Supervisor simples: cada app é um arquivo `.conf` e cada rota um arquivo `.caddy`. O que cair volta sozinho.
 - Sobe sozinho no boot (Magisk `service.d` ou SuperSU `su.d`) e segura a CPU acordada com a tela apagada.
-- Túnel Cloudflare sem conta e endereço fixo grátis com um Worker, avisado pelo próprio aparelho.
+- Túnel Cloudflare sem conta e endereço fixo grátis com um Worker, avisado pelo próprio aparelho. O endereço público é testado por fora e o túnel é refeito se a Cloudflare o apagar.
 - Backup diário criptografado (AES-256), baixado pelo PC com uma tarefa agendada no Windows ou cron no Linux/macOS.
 - Receitas: `hello` (teste da cadeia toda) e `evolution` (Evolution API + MariaDB + Node.js 22).
 - Desinstalação segura, que nunca apaga o `/dev` do Android.
@@ -28,7 +28,8 @@ Num Galaxy S7 (Android 8, SuperSU), instalação do zero com estes scripts:
 - volta sozinho do reboot em 85 s;
 - responde com a tela apagada e em Doze forçado;
 - app e túnel derrubados voltam em 27 s, com o endereço fixo acompanhando;
-- backup baixado e aberto no PC.
+- backup baixado e aberto no PC;
+- se a Cloudflare apagar o endereço do túnel (já aconteceu com o cloudflared ainda "conectado"), o supervisor percebe testando o endereço público por fora e abre um túnel novo.
 
 Detalhes em `references/caso-s7.md`.
 

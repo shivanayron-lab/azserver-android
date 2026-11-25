@@ -50,4 +50,6 @@ Tudo roda **dentro do chroot**: o Ubuntu já traz DNS e certificados, então o c
 - **Kernel sem SysV IPC** (comum em Android): PostgreSQL não roda; use MariaDB/MySQL ou SQLite.
 - **`mysqld_safe` falha no chroot:** chame `mariadbd --user=mysql` direto.
 - **Endereço novo do túnel:** não dependa de Gist/arquivo público para descobri-lo (o CDN do GitHub atrasa minutos e a API limita). O próprio aparelho lê o endereço no cloudflared (`/quicktunnel` na porta de métricas) e avisa o Worker.
+- **Túnel "conectado" não quer dizer que o endereço existe:** a Cloudflare pode apagar o endereço de um quick tunnel com o cloudflared ainda dizendo que está tudo ok. O supervisor testa o endereço público por fora e reinicia o túnel quando ele some. Não confie só no `/ready`.
+- **KV grátis = 1.000 gravações por dia para a conta inteira:** outro Worker que grave no KV a cada evento derruba o aviso de endereço do aparelho. Gravação frequente vai para o D1.
 - **Arquivos de chave só com LF:** um `\r` do Windows faz o openssl do aparelho e o do PC lerem senhas diferentes ("bad decrypt").

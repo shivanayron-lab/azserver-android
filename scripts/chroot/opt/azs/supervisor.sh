@@ -1,7 +1,7 @@
 #!/bin/bash
 # Supervisor of the Android server, inside the chroot. One copy only (flock).
-#   supervisor.sh          loop: keep every service up, tell the Worker the tunnel address,
-#                          daily backup
+#   supervisor.sh          loop: keep every service up, check the tunnel's public address
+#                          from outside, tell the Worker the tunnel address, daily backup
 #   supervisor.sh status   what is running
 #   supervisor.sh stop     stop everything
 #
@@ -98,6 +98,47 @@ push_tunnel() {
   fi
 }
 
+# A quick tunnel can lose its address while cloudflared still says "connected": Cloudflare
+# deleted the hostname (DNS answers NXDOMAIN) and /ready kept answering 200, so the service
+# check never noticed and everything stayed offline until a manual restart. So, every
+# 2 minutes, reach the public address from outside. 3 failures in a row while the internet
+# works = the address is gone: restart the tunnel (new address; push_tunnel tells the Worker).
+PUB_FAILS=0
+PUB_LAST=0
+tunnel_conf() {  # load the service whose NAME=tunnel
+  local f
+  for f in $A/services/*.conf; do
+    grep -q '^NAME=tunnel$' "$f" 2>/dev/null && { conf "$f"; return 0; }
+  done
+  return 1
+}
+check_public() {
+  local now u code started
+  now=$(date +%s)
+  [ $((now - PUB_LAST)) -ge 120 ] || return 0
+  PUB_LAST=$now
+  u=$(tunnel_url) || return 0
+  tunnel_conf || return 0
+  started=$(cat $RUN/$SVC_NAME.started 2>/dev/null || echo 0)
+  [ $((now - started)) -ge 120 ] || return 0   # a new address takes a moment to reach DNS
+  # any HTTP answer from our router = alive; 000 (no DNS / no connection) or a Cloudflare
+  # 502/52x/530 (tunnel without connector) = dead
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$u/")
+  case "$code" in 000|502|530|52[0-7]) ;; *) PUB_FAILS=0; return 0 ;; esac
+  # internet at home down: a new tunnel would not help (and would change the address)
+  if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://www.cloudflare.com/cdn-cgi/trace)" != 200 ]; then
+    PUB_FAILS=0; return 0
+  fi
+  PUB_FAILS=$((PUB_FAILS + 1))
+  log "endereço público $u não responde (HTTP $code) $PUB_FAILS/3"
+  [ $PUB_FAILS -ge 3 ] || return 0
+  PUB_FAILS=0
+  mkdir -p $A/state
+  echo "$(date '+%F %T') $u (HTTP $code)" > $A/state/tunnel_restart
+  log "endereço $u sumiu: reiniciando o túnel"
+  start_svc
+}
+
 backup_due() {
   [ -s "$BACKUP_KEY_FILE" ] || return 1
   [ -z "$(find $A/backups/.last -mmin -"${BACKUP_EVERY_MIN:-1380}" 2>/dev/null)" ]
@@ -111,6 +152,7 @@ case "$1" in
       printf '%-12s %s\n' "$SVC_NAME" "$s"
     done
     echo "túnel:        $(tunnel_url || echo '-')"
+    [ -f $A/state/tunnel_restart ] && echo "túnel caiu:   $(cat $A/state/tunnel_restart) -> reiniciado"
     echo "fixo:         ${WORKER_URL:--}"
     echo "backup:       $(cat $A/export/latest.json 2>/dev/null || echo 'nenhum')"
     pgrep -f '/opt/azs/superviso[r].sh' >/dev/null && echo "supervisor:   rodando" || echo "supervisor:   parado"
@@ -129,6 +171,7 @@ find $RUN -name '*.pid' -delete
 log "supervisor iniciado (pid $$)"
 while true; do
   check_all
+  check_public
   push_tunnel
   if backup_due; then
     if ! $A/backup.sh 9>&-; then

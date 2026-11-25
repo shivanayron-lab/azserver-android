@@ -14,6 +14,7 @@ Objetivo da pessoa: vender automações e ações de CRM pelo WhatsApp sem pagar
 6. **Painel em branco** atrás de `/evo`: caminhos absolutos no Manager, resolvido com o `patch-manager.sh`.
 7. **Endereço mudando a cada reboot.** Primeiro um Gist guardava o endereço; um Worker que lia o Gist deu 503 intermitente por minutos depois de cada troca (CDN do GitHub atrasado e API limitada). A solução final foi o aparelho ler o próprio endereço no cloudflared e avisar o Worker, que guarda no KV.
 8. **Backup.** O primeiro backup criptografado não abria: chave com `\r\n` do Windows. Gravando as chaves só com LF, abriu, com as 37 tabelas e as sessões do WhatsApp.
+9. **Queda com tudo "no ar" (duas semanas depois).** A Evolution sumiu da internet: o endereço fixo dava 503 com o aparelho, a Evolution, o banco e o cloudflared funcionando (1 conexão ativa, `/ready` 200). A causa era o DNS: a Cloudflare tinha apagado o endereço do quick tunnel, e nada local percebia. Reiniciar o túnel resolveu na hora. Daí veio a checagem do endereço público no supervisor, que foi testada no mesmo aparelho: endereço apagado, endereço vivo, carência após reiniciar e intervalo de 2 minutos. Na mesma investigação, o aparelho não conseguia avisar o Worker do endereço novo (`KV put() limit exceeded for the day`). Outro Worker da mesma conta, que gravava no KV a cada webhook do WhatsApp, tinha gasto a cota diária da conta inteira. Passar esse Worker para o D1 resolveu.
 
 ## Validação desta skill no mesmo aparelho
 

@@ -8,6 +8,7 @@ Limites:
 - O endereço **muda a cada reinício** do túnel (reboot, queda de rede longa).
 - A Cloudflare diz que o quick tunnel é para testes, sem garantia. Na prática é estável, mas para negócio sério use um túnel com nome (abaixo).
 - Endereço atual: `azs.sh status` ou `/opt/azs/state/tunnel_url`. O supervisor o lê no próprio cloudflared: `curl 127.0.0.1:$METRICS_PORT/quicktunnel`.
+- **O endereço pode sumir com o cloudflared "conectado".** Visto no caso real: a Cloudflare apagou o endereço (o DNS respondia "domínio inexistente"), mas o cloudflared continuava com conexão ativa e `/ready` = 200. A checagem local não via nada e tudo ficou fora até alguém reiniciar. Por isso o supervisor também testa **o endereço público, por fora**, a cada 2 minutos. Se falhar 3 vezes seguidas e a internet de casa estiver funcionando (testa `cloudflare.com`), ele reinicia o túnel. Sai um endereço novo e o Worker é avisado. Recém-iniciado, o túnel tem 2 minutos de carência. A última queda fica em `/opt/azs/state/tunnel_restart` e aparece no `azs.sh status`.
 
 ## Endereço fixo grátis (Cloudflare Worker)
 
@@ -33,6 +34,14 @@ Em até 15 s o log mostra "endereço fixo ... agora aponta para ...".
 Segurança: o Worker recusa aviso sem a chave (403) e só aceita endereço `*.trycloudflare.com` (400). Quem tiver a chave pode desviar o tráfego para outro túnel, então ela fica só no aparelho e com a pessoa.
 
 Comportamento medido no caso real: durante um reboot, o endereço fixo fica fora uns 1,5 a 3 minutos (o tempo do aparelho ligar). Depois, 100% (60 de 60 requisições). Se um app ou o túnel cai, volta em menos de 30 s com o endereço novo.
+
+### Cota do KV: 1.000 gravações por dia para a conta inteira
+
+O KV grátis aceita **1.000 gravações por dia somando todos os Workers da conta**. Leituras são 100 mil por dia. Este Worker grava só quando o túnel muda, poucas vezes por dia. Mas se a pessoa tiver outro Worker na mesma conta gravando no KV a cada evento (por exemplo, um webhook por mensagem do WhatsApp), a cota acaba no meio do dia. A partir daí, o aviso do aparelho falha (`/__set` responde 503 "kv: ... limit exceeded") e o Worker fica apontando para o endereço velho até a cota zerar, à meia-noite UTC.
+
+- Antes de criar o Worker, pergunte se a conta já tem outros Workers usando KV. No painel, veja em Workers & Pages > KV > Metrics.
+- Para gravar a cada evento, use o **D1** (SQLite da Cloudflare, 100 mil gravações por dia grátis e sem o limite de 1 gravação por segundo na mesma chave), não o KV. No caso real, trocar um Worker de webhooks do KV para o D1 resolveu.
+- Para descobrir se é isso: `npx wrangler tail <worker>` mostra `KV put() limit exceeded for the day`.
 
 Limites do plano grátis: 100 mil requisições por dia. As regras da Cloudflare restringem servir principalmente vídeo e arquivos grandes pelo plano grátis: para isso, mande o cliente direto ao endereço do túnel, ou use outro caminho.
 
